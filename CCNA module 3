@@ -1,0 +1,257 @@
+Tasks 
+•	Configure routers R0, R1 and R2 using multi-area OSPS with designated area ID shown in the figure. Use OSPF process ID as 1.
+•	Configure EIGRP with AS 1 in Router R3, R4 ad R5 with no auto summary enabled 
+•	Redistribute EIGRP into OSPF and vice versa in R3.
+•	Use Ethernet ports in Routers as passive interface. Use Serial clock rate 64000 in all cases.
+•	Configure switches S0, S1, S2. Use S0 as VTP server with domain BUET and passowrd cisco. S1 and S2 are VTP clients. Enable portfast and bpduguard in  in host ports. Also use rapid-pvst as STP protocol.
+
+Tests
+1.	Ping from PC0 to PC1 and  PC1 to PC0.
+2.	Show routing tables in all routers
+3.	Show STP and VLAN information in all switches
+4.	Ping from PC0 to PC3
+5.	Ping from PC3 to PC4
+6.	Ping from PC4 to PC0 and  PC4 to PC1.
+===============================================================================================================
+
+R0
+--------
+
+config t
+
+int s0/0/0
+ip add 10.0.0.1 255.255.255.252
+clock rate 64000
+no shut
+exit
+int s0/0/1
+ip add 10.0.0.5 255.255.255.252
+clock rate 64000
+no shut
+exit
+int s0/1/0
+ip add 10.0.0.9 255.255.255.252
+clock rate 64000
+no shut
+exit
+int s0/1/1
+ip add 10.0.0.13 255.255.255.252
+clock rate 64000
+no shut
+exit
+
+router ospf 1
+network 10.0.0.0 0.0.0.3 area 0
+network 10.0.0.4 0.0.0.3 area 0
+network 10.0.0.8 0.0.0.3 area 0
+
+R1
+---------------
+
+config t
+
+int s0/0/0
+ip add 10.0.0.2 255.255.255.252
+clock rate 64000
+no shut
+exit
+
+int g0/1.10
+encapsulation dot1q 10
+ip add 192.168.10.1 255.255.255.0
+exit
+int g0/1.20
+encapsulation dot1q 20
+ip add 192.168.20.1 255.255.255.0
+exit
+int g0/1.99
+encapsulation dot1q 99
+ip add 192.168.99.1 255.255.255.0
+exit
+int g0/1
+no shutdown
+exit
+
+router ospf 1
+network 10.0.0.0 0.0.0.3 area 0
+network 192.168.10.0 0.0.0.255 area 51
+network 192.168.20.0 0.0.0.255 area 51
+network 192.168.99.0 0.0.0.255 area 51
+passive-interface g0/1
+passive-interface g0/0
+
+R2
+--------------
+
+config t
+
+int s0/0/1
+ip add 10.0.0.6 255.255.255.252
+clock rate 64000
+no shut
+exit
+int g0/1
+ip add 172.17.1.1 255.255.255.0
+no shut
+exit
+
+router ospf 1
+network 10.0.0.4 0.0.0.3 area 0
+network 172.17.1.0 0.0.0.255 area 50
+passive-int g0/1
+
+
+R3
+-----------------
+
+config t
+
+int s0/1/0
+ip add 10.0.0.10 255.255.255.252
+clock rate 64000
+no shut
+exit
+int s0/0/0
+ip add 172.16.3.1 255.255.255.252
+clock rate 64000
+no shut
+exit
+int s0/0/1
+ip add 172.16.3.5 255.255.255.252
+clock rate 64000
+no shut
+exit
+
+router ospf 1
+network 10.0.0.8 0.0.0.3 area 0
+exit
+router eigrp 1
+network 172.16.3.0 0.0.0.3
+network 172.16.3.4 0.0.0.3
+no auto-summary
+
+router eigrp 1
+redistribute ospf 1 metric 10000 100 255 1 1500
+no auto-summary
+router ospf 1
+redistribute eigrp 1 subnets
+
+R4
+-------------
+
+config t
+int s0/0/0
+ip add 172.16.3.2 255.255.255.252
+clock rate 64000
+no shut
+exit
+int g0/0
+ip add 172.16.1.1 255.255.255.0
+no shut
+exit
+
+router eigrp 1
+network 172.16.3.0 0.0.0.3
+network 172.16.1.0 0.0.0.255
+passive-int g0/0
+no auto-summary
+exit
+
+R5
+--------------
+
+config t
+int s0/0/1
+ip add 172.16.3.6 255.255.255.252
+clock rate 64000
+no shut
+exit
+int g0/0
+ip add 172.16.2.1 255.255.255.0
+no shut
+exit
+
+router eigrp 1
+network 172.16.3.4 0.0.0.3
+network 172.16.2.0 0.0.0.255
+passive-int g0/0
+no auto-summary
+exit
+
+S0
+--------
+config t
+hostname S0
+
+vlan 10
+name CSE
+vlan 20
+name BUET
+vlan 99
+name management
+
+vtp mode server
+vtp domain BUET
+vtp password Cisco
+
+spanning-tree mode rapid-pvst
+
+int vlan99
+ip add 192.168.99.2 255.255.255.0
+ip default-gateway 192.168.99.1
+
+int range g0/1,f0/2-3
+switchport mode trunk
+switchport trunk native vlan 99
+
+
+S1
+-----
+
+config t
+hostname S1
+
+vtp mode client
+vtp domain BUET
+vtp password Cisco
+
+spanning-tree mode rapid-pvst
+
+int vlan99
+ip add 192.168.99.3 255.255.255.0
+ip default-gateway 192.168.99.1
+
+int range f0/2-3
+switchport mode trunk
+switchport trunk native vlan 99
+
+int range f0/5
+switchport mode access
+switchport access vlan 10
+spanning-tree portfast
+spanning-tree bpduguard enable
+
+S2
+-------
+config t
+hostname S2
+
+vtp mode client
+vtp domain BUET
+vtp password Cisco
+
+spanning-tree mode rapid-pvst
+
+int vlan99
+ip add 192.168.99.4 255.255.255.0
+ip default-gateway 192.168.99.1
+
+int range f0/2,f0/4
+switchport mode trunk
+switchport trunk native vlan 99
+
+int range f0/5
+switchport mode access
+switchport access vlan 20
+spanning-tree portfast
+spanning-tree bpduguard enable
